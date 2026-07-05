@@ -1,5 +1,4 @@
 codigo_serie,nome_serie,data,valor
-1,Dólar americano (venda),2024-07-04,5.4839
 1,Dólar americano (venda),2024-07-05,5.497
 1,Dólar americano (venda),2024-07-08,5.472
 1,Dólar americano (venda),2024-07-09,5.4387
@@ -502,7 +501,6 @@ codigo_serie,nome_serie,data,valor
 1,Dólar americano (venda),2026-07-01,5.195
 1,Dólar americano (venda),2026-07-02,5.1945
 1,Dólar americano (venda),2026-07-03,5.1717
-432,Meta Selic definida pelo Copom,2024-07-04,10.5
 432,Meta Selic definida pelo Copom,2024-07-05,10.5
 432,Meta Selic definida pelo Copom,2024-07-06,10.5
 432,Meta Selic definida pelo Copom,2024-07-07,10.5
@@ -1233,6 +1231,7 @@ codigo_serie,nome_serie,data,valor
 432,Meta Selic definida pelo Copom,2026-07-02,14.25
 432,Meta Selic definida pelo Copom,2026-07-03,14.25
 432,Meta Selic definida pelo Copom,2026-07-04,14.25
+432,Meta Selic definida pelo Copom,2026-07-05,14.25
 433,IPCA - variação mensal,2024-07-01,0.38
 433,IPCA - variação mensal,2024-08-01,-0.02
 433,IPCA - variação mensal,2024-09-01,0.44
