@@ -1,11 +1,11 @@
-"""Orquestra o pipeline ETL de indicadores do Banco Central: extract -> transform -> load."""
+"""Orquestra o pipeline ETL de população do IBGE: extract -> transform -> load."""
 
 import logging
 import sys
 
-from src.extract import extrair_todas_series
+from src.extract import extrair_populacao
 from src.load import carregar
-from src.transform import transformar_series
+from src.transform import transformar_populacao
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +20,11 @@ def main() -> None:
         logger.info("=== Pipeline iniciado ===")
 
         logger.info("Fase EXTRACT: início")
-        dados_brutos = extrair_todas_series()
-        logger.info("Fase EXTRACT: fim (%d série(s))", len(dados_brutos))
+        dados_brutos = extrair_populacao()
+        logger.info("Fase EXTRACT: fim (%d localidade(s))", len(dados_brutos))
 
         logger.info("Fase TRANSFORM: início")
-        df_limpo = transformar_series(dados_brutos)
+        df_limpo = transformar_populacao(dados_brutos)
         logger.info("Fase TRANSFORM: fim (%d registros)", len(df_limpo))
 
         logger.info("Fase LOAD: início")

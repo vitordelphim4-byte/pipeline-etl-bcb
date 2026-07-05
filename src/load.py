@@ -1,4 +1,4 @@
-"""Carga idempotente do DataFrame tratado no banco relacional + export de snapshot CSV."""
+"""Carga idempotente do DataFrame de população no banco relacional + export de snapshot CSV."""
 
 import logging
 import os
@@ -7,8 +7,6 @@ from pathlib import Path
 import pandas as pd
 from sqlalchemy import (
     Column,
-    Date,
-    Float,
     Integer,
     MetaData,
     String,
@@ -23,19 +21,19 @@ from sqlalchemy.engine import Engine, make_url
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL_PADRAO = "sqlite:///data/indicadores.db"
-CSV_PATH = Path("data/indicadores.csv")
+DATABASE_URL_PADRAO = "sqlite:///data/populacao.db"
+CSV_PATH = Path("data/populacao.csv")
 
 metadata = MetaData()
 
-tabela_indicadores = Table(
-    "indicadores",
+tabela_populacao = Table(
+    "populacao",
     metadata,
-    Column("codigo_serie", Integer, nullable=False),
-    Column("nome_serie", String, nullable=False),
-    Column("data", Date, nullable=False),
-    Column("valor", Float, nullable=False),
-    UniqueConstraint("codigo_serie", "data", name="uq_indicadores_codigo_data"),
+    Column("uf_id", Integer, nullable=False),
+    Column("uf_nome", String, nullable=False),
+    Column("ano", Integer, nullable=False),
+    Column("populacao", Integer, nullable=False),
+    UniqueConstraint("uf_id", "ano", name="uq_populacao_uf_ano"),
 )
 
 
@@ -50,34 +48,34 @@ def obter_engine(url: str | None = None) -> Engine:
 
 
 def _upsert(conn, df: pd.DataFrame) -> tuple[int, int]:
-    """Insere registros novos e atualiza existentes por (codigo_serie, data).
+    """Insere registros novos e atualiza existentes por (uf_id, ano).
 
-    Usa apenas SQL portável (select/insert/update) para não depender de sintaxe
-    de upsert específica de um dialeto (ex.: ON CONFLICT do SQLite/Postgres não existe no Oracle).
+    Usa apenas SQL portável (select/insert/update), sem sintaxe de upsert
+    específica de um dialeto (ex.: ON CONFLICT não existe no Oracle).
     Retorna (qtd_inserida, qtd_atualizada).
     """
-    tabela = tabela_indicadores
+    tabela = tabela_populacao
     chaves_existentes = {
-        (codigo, data) for codigo, data in conn.execute(select(tabela.c.codigo_serie, tabela.c.data))
+        (uf_id, ano) for uf_id, ano in conn.execute(select(tabela.c.uf_id, tabela.c.ano))
     }
 
     inseridos = atualizados = 0
     for registro in df.to_dict("records"):
-        codigo = int(registro["codigo_serie"])
-        data = registro["data"].date()
-        valor = float(registro["valor"])
-        nome = str(registro["nome_serie"])
-        chave = (codigo, data)
+        uf_id = int(registro["uf_id"])
+        ano = int(registro["ano"])
+        populacao = int(registro["populacao"])
+        uf_nome = str(registro["uf_nome"])
+        chave = (uf_id, ano)
 
         if chave in chaves_existentes:
             conn.execute(
                 update(tabela)
-                .where((tabela.c.codigo_serie == codigo) & (tabela.c.data == data))
-                .values(nome_serie=nome, valor=valor)
+                .where((tabela.c.uf_id == uf_id) & (tabela.c.ano == ano))
+                .values(uf_nome=uf_nome, populacao=populacao)
             )
             atualizados += 1
         else:
-            conn.execute(insert(tabela).values(codigo_serie=codigo, nome_serie=nome, data=data, valor=valor))
+            conn.execute(insert(tabela).values(uf_id=uf_id, uf_nome=uf_nome, ano=ano, populacao=populacao))
             chaves_existentes.add(chave)
             inseridos += 1
 
@@ -88,7 +86,7 @@ def _exportar_csv(engine: Engine) -> None:
     """Exporta o histórico completo da tabela (não só o lote da execução atual) para CSV versionado no Git."""
     with engine.connect() as conn:
         df_completo = pd.read_sql(
-            select(tabela_indicadores).order_by(tabela_indicadores.c.codigo_serie, tabela_indicadores.c.data),
+            select(tabela_populacao).order_by(tabela_populacao.c.uf_nome, tabela_populacao.c.ano),
             conn,
         )
     df_completo.to_csv(CSV_PATH, index=False)
@@ -109,9 +107,9 @@ def carregar(df: pd.DataFrame, url: str | None = None) -> None:
 
 
 if __name__ == "__main__":
-    from src.extract import extrair_todas_series
-    from src.transform import transformar_series
+    from src.extract import extrair_populacao
+    from src.transform import transformar_populacao
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-    carregar(transformar_series(extrair_todas_series()))
+    carregar(transformar_populacao(extrair_populacao()))
     print("Carga finalizada. Rode de novo para confirmar idempotência (0 duplicados, só updates).")

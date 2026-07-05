@@ -1,10 +1,10 @@
-name: Pipeline ETL Indicadores BCB
+name: Pipeline ETL População IBGE
 
 on:
   schedule:
-    # 21:00 UTC = 18:00 horário de Brasília (BRT = UTC-3, sem horário de verão desde 2019).
-    # Roda após o fechamento do câmbio (PTAX) e a divulgação diária do SGS.
-    - cron: "0 21 * * *"
+    # Todo dia 1 do mês, 12:00 UTC. Dado é anual (IBGE publica ~1x/ano) — cron
+    # mensal já dá folga de sobra pra pegar a estimativa nova assim que sair.
+    - cron: "0 12 1 * *"
   workflow_dispatch: # permite disparo manual pela aba Actions do GitHub
 
 permissions:
@@ -33,6 +33,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/indicadores.csv
-          git diff --staged --quiet && echo "Sem mudanças no CSV, nada a commitar." || git commit -m "chore: atualiza snapshot de indicadores [skip ci]"
+          git add data/populacao.csv
+          git diff --staged --quiet && echo "Sem mudanças no CSV, nada a commitar." || git commit -m "chore: atualiza snapshot de população [skip ci]"
           git push

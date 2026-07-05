@@ -1,4 +1,4 @@
-"""Transformação das séries brutas do BCB em um único DataFrame limpo e validado."""
+"""Transformação dos dados de população do IBGE em um DataFrame único, tipado e validado."""
 
 import logging
 
@@ -6,68 +6,72 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-COLUNAS = ["codigo_serie", "nome_serie", "data", "valor"]
+COLUNAS = ["uf_id", "uf_nome", "ano", "populacao"]
 
 
-def _serie_para_dataframe(serie: dict) -> pd.DataFrame:
-    """Converte uma série bruta ({"codigo_serie", "nome_serie", "dados"}) em DataFrame."""
-    if not serie["dados"]:
-        logger.warning("Série %s sem registros para transformar", serie["codigo_serie"])
+def _localidade_para_dataframe(localidade: dict) -> pd.DataFrame:
+    """Converte uma localidade bruta ({"localidade": {...}, "serie": {"ano": "valor"}}) em DataFrame."""
+    serie = localidade["serie"]
+    if not serie:
+        logger.warning("Localidade %s sem registros para transformar", localidade["localidade"]["id"])
         return pd.DataFrame(columns=COLUNAS)
 
-    df = pd.DataFrame(serie["dados"])
-    df["codigo_serie"] = serie["codigo_serie"]
-    df["nome_serie"] = serie["nome_serie"]
+    df = pd.DataFrame(list(serie.items()), columns=["ano", "populacao"])
+    df["uf_id"] = int(localidade["localidade"]["id"])
+    df["uf_nome"] = localidade["localidade"]["nome"]
     return df[COLUNAS]
 
 
 def _checar_qualidade(df: pd.DataFrame) -> pd.DataFrame:
-    """Loga e remove registros com data/valor nulo e duplicatas de (codigo_serie, data)."""
-    nulos = df["data"].isna() | df["valor"].isna()
+    """Loga e remove registros com ano/população nulos e duplicatas de (uf_id, ano)."""
+    nulos = df["ano"].isna() | df["populacao"].isna()
     if nulos.any():
-        logger.warning("Removendo %d registro(s) com data/valor nulo ou inválido", nulos.sum())
+        logger.warning("Removendo %d registro(s) com ano/população nulo ou inválido", nulos.sum())
         df = df[~nulos]
 
-    duplicados = df.duplicated(subset=["codigo_serie", "data"], keep="last")
+    duplicados = df.duplicated(subset=["uf_id", "ano"], keep="last")
     if duplicados.any():
-        logger.warning("Removendo %d registro(s) duplicado(s) de (codigo_serie, data)", duplicados.sum())
+        logger.warning("Removendo %d registro(s) duplicado(s) de (uf_id, ano)", duplicados.sum())
         df = df[~duplicados]
 
     return df
 
 
-def transformar_series(series_brutas: list[dict]) -> pd.DataFrame:
-    """Une as séries brutas extraídas em um DataFrame único, tipado, sem nulos/duplicatas.
+def transformar_populacao(localidades_brutas: list[dict]) -> pd.DataFrame:
+    """Une as localidades brutas extraídas em um DataFrame único, tipado, sem nulos/duplicatas.
 
-    series_brutas: saída de extract.extrair_todas_series().
-    Retorna DataFrame com colunas COLUNAS, ordenado por codigo_serie e data.
+    localidades_brutas: saída de extract.extrair_populacao().
+    Retorna DataFrame com colunas COLUNAS, ordenado por uf_nome e ano.
     """
-    df = pd.concat([_serie_para_dataframe(s) for s in series_brutas], ignore_index=True)
+    df = pd.concat([_localidade_para_dataframe(loc) for loc in localidades_brutas], ignore_index=True)
 
-    df["data"] = pd.to_datetime(df["data"], format="%d/%m/%Y", errors="coerce")
-    df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
-    df["codigo_serie"] = df["codigo_serie"].astype(int)
-    df["nome_serie"] = df["nome_serie"].astype(str)
+    df["ano"] = pd.to_numeric(df["ano"], errors="coerce")
+    df["populacao"] = pd.to_numeric(df["populacao"], errors="coerce")
+    df["uf_id"] = df["uf_id"].astype(int)
+    df["uf_nome"] = df["uf_nome"].astype(str)
 
     df = _checar_qualidade(df)
 
-    df = df[COLUNAS].sort_values(["codigo_serie", "data"]).reset_index(drop=True)
-    logger.info("Transformação concluída: %d registros, %d série(s)", len(df), df["codigo_serie"].nunique())
+    df["ano"] = df["ano"].astype(int)
+    df["populacao"] = df["populacao"].astype(int)
+
+    df = df[COLUNAS].sort_values(["uf_nome", "ano"]).reset_index(drop=True)
+    logger.info("Transformação concluída: %d registros, %d localidade(s)", len(df), df["uf_id"].nunique())
     return df
 
 
 if __name__ == "__main__":
-    from src.extract import extrair_todas_series
+    from src.extract import extrair_populacao
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-    df_final = transformar_series(extrair_todas_series())
+    df_final = transformar_populacao(extrair_populacao())
 
     print(df_final.dtypes)
     print(df_final.head())
     print(df_final.tail())
     print("Total de registros:", len(df_final))
 
-    assert df_final["data"].notna().all(), "há datas nulas no resultado final"
-    assert df_final["valor"].notna().all(), "há valores nulos no resultado final"
-    assert not df_final.duplicated(subset=["codigo_serie", "data"]).any(), "há duplicatas no resultado final"
+    assert df_final["ano"].notna().all(), "há anos nulos no resultado final"
+    assert df_final["populacao"].notna().all(), "há população nula no resultado final"
+    assert not df_final.duplicated(subset=["uf_id", "ano"]).any(), "há duplicatas no resultado final"
     print("Checagens de qualidade OK")
